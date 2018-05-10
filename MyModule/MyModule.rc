@@ -16,13 +16,11 @@
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
-// 中文(中华人民共和国) resources
+// 中文(简体，中国) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
-#ifdef _WIN32
 LANGUAGE LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED
 #pragma code_page(936)
-#endif //_WIN32
 
 #ifdef APSTUDIO_INVOKED
 /////////////////////////////////////////////////////////////////////////////
@@ -127,6 +125,9 @@ BEGIN
     CONTROL         "接收",IDC_RADIO2,"Button",BS_AUTORADIOBUTTON,12,160,32,10
     PUSHBUTTON      "确定",IDC_BUTTON10,45,145,50,21
     GROUPBOX        "工作模式选择",IDC_STATIC,7,134,91,42
+    LTEXT           "是否导频：",IDC_STATIC,152,66,48,8
+    PUSHBUTTON      "是",IDC_DPY,186,65,31,12
+    PUSHBUTTON      "否",IDC_DPN,218,65,31,12
 END
 
 
@@ -136,7 +137,7 @@ END
 //
 
 #ifdef APSTUDIO_INVOKED
-GUIDELINES DESIGNINFO 
+GUIDELINES DESIGNINFO
 BEGIN
     IDD_DIALOG1, DIALOG
     BEGIN
@@ -148,7 +149,18 @@ BEGIN
 END
 #endif    // APSTUDIO_INVOKED
 
-#endif    // 中文(中华人民共和国) resources
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// AFX_DIALOG_LAYOUT
+//
+
+IDD_DIALOG1 AFX_DIALOG_LAYOUT
+BEGIN
+    0
+END
+
+#endif    // 中文(简体，中国) resources
 /////////////////////////////////////////////////////////////////////////////
 
 

@@ -36,6 +36,8 @@ BEGIN_MESSAGE_MAP(CAlgorithm, CDialog)
 	ON_BN_CLICKED(IDCANCEL, &CAlgorithm::OnBnClickedCancel)
 	ON_MESSAGE(MSG_HAS_NEW_DATA, &CAlgorithm::OnNewData)
 	ON_BN_CLICKED(IDC_BUTTON10, &CAlgorithm::OnBnClickedButton10)
+	ON_BN_CLICKED(IDC_DPY, &CAlgorithm::OnBnClickedDpy)
+	ON_BN_CLICKED(IDC_DPN, &CAlgorithm::OnBnClickedDpn)
 END_MESSAGE_MAP()
 
 
@@ -57,6 +59,8 @@ BOOL CAlgorithm::OnInitDialog()
 
 	m_IsRemoteOK = TRUE;
 	m_bHasNewData = FALSE;
+	m_CanSendOK = FALSE;
+	m_NeedDp = FALSE;
 	m_nSendBufferIndex = 0;
 	m_nReceiveBufferIndex = 0;
 	m_WaittingTime = 0;
@@ -70,50 +74,108 @@ void CAlgorithm::RunAlgorithm(const double* pdInput, double * pdOutput)
 	if (m_DataWaitingTime > 1000)
 		m_DataWaitingTime = 0;
 
-	if(m_bIsSend==TRUE)	//发送方
-	{
-		//数据发送
-		if (m_DataWaitingTime == 1000)
-		{
-			m_SendBuffer1[m_nSendBufferIndex] = float(pdInput[0]);	//从Input-1获取数据来发送，将double类型的数据强制转换为float类型，降低的精度对于我们的算法来讲不会有影响
-			m_nSendBufferIndex++;
-		}
-		if(m_nSendBufferIndex >= BUFFER_SIZE/4)
-		{	//发送缓存已满，将数据发送出去
-			m_nSendBufferIndex = 0;
-			memcpy(m_SendBuffer2, m_SendBuffer1, BUFFER_SIZE*sizeof(char));
-			while(m_IsRemoteOK==FALSE)	//等待接收方返回接收回执，这里可以考虑设置一个等待的时间门限，如果超时，则认为接收方出现故障，终止远程发送，断开SOCKET连接
-			{	//如果采用非同步传输方式，可不用等待，仿真效率会提高，但数据在接收方可能会有丢失
-				Sleep(1);
-				m_WaittingTime++;
-				if(m_WaittingTime>1000)	//等待时间达到1秒，重发一次数据，应对对方反应慢的问题
-				{
-					m_WaittingTime = 0;
-					m_TargetSocket.Send(m_SendBuffer2, BUFFER_SIZE);
-				}
+	if (m_NeedDp == TRUE && m_IsSynchr == FALSE) {
+		if (m_bIsSend == TRUE) {
+			if (m_DataWaitingTime == 1000)
+			{
+				m_SendBuffer1[m_nSendBufferIndex] = float(pdInput[1]);	//从Input-2获取数据来发送，将double类型的数据强制转换为float类型，降低的精度对于我们的算法来讲不会有影响
+				m_nSendBufferIndex++;
 			}
-			m_IsRemoteOK = FALSE;
-			m_TargetSocket.Send(m_SendBuffer2, BUFFER_SIZE);
+			if (m_nSendBufferIndex >= dpNum / 4)
+			{	//发送25个导频信号
+				memcpy(m_SendBuffer2, m_SendBuffer1, dpNum * sizeof(char));
+				while (m_IsRemoteOK == FALSE)	//等待接收方返回接收回执，这里可以考虑设置一个等待的时间门限，如果超时，则认为接收方出现故障，终止远程发送，断开SOCKET连接
+				{	//如果采用非同步传输方式，可不用等待，仿真效率会提高，但数据在接收方可能会有丢失
+					Sleep(1);
+					m_WaittingTime++;
+					if (m_WaittingTime > 1000)	//等待时间达到1秒，重发一次数据，应对对方反应慢的问题
+					{
+						m_WaittingTime = 0;
+						m_TargetSocket.Send(m_SendBuffer2, dpNum);
+					}
+				}
+				m_IsRemoteOK = FALSE;
+				m_nSendBufferIndex = 0;
+				m_IsSynchr = TRUE;
+			}
+			else {
+				
+				//数据接收
+				while (m_bHasNewData == FALSE)	//等待发送方发送新的数据，可以设置一个超时时间，如果超时则断开SOCKET连接，终止接收数据
+				{	//如果采用非同步传输方式，可不用等待，仿真效率会提高，但是数据可能会有重复
+					Sleep(1);
+				}
+				if (m_DataWaitingTime == 1000)
+				{
+					dpbuffer[m_nReceiveBufferIndex++] = m_ReceiveBuffer[m_nReceiveBufferIndex];			
+				}
+				if (m_nReceiveBufferIndex >= dpNum / 4)
+				{
+					m_nReceiveBufferIndex = 0;
+					m_bHasNewData = FALSE;
+				}
+				for (int i = 0; i < dpNum/4; i++) {
+				FLAG:if (dpbuffer[i] - float(pdInput[1]) <= 0.01) {
+					pdOutput[1] = dpbuffer[i];
+						continue;
+					}
+					else {
+						goto FLAG;
+					}
+				}
+				m_CanSendOK = TRUE;
+			}
 		}
 	}
-	else	//接收方
-	{
-		//数据接收
-		while(m_bHasNewData==FALSE)	//等待发送方发送新的数据，可以设置一个超时时间，如果超时则断开SOCKET连接，终止接收数据
-		{	//如果采用非同步传输方式，可不用等待，仿真效率会提高，但是数据可能会有重复
-			Sleep(1);
-		}
-		if (m_DataWaitingTime == 1000)
+	
+	if (m_NeedDp == FALSE) {
+
+		if (m_bIsSend == TRUE)	//发送方
 		{
-			pdOutput[0] = m_ReceiveBuffer[m_nReceiveBufferIndex];
-			m_nReceiveBufferIndex++;
+			//数据发送
+			if (m_DataWaitingTime == 1000)
+			{
+				m_SendBuffer1[m_nSendBufferIndex] = float(pdInput[0]);	//从Input-1获取数据来发送，将double类型的数据强制转换为float类型，降低的精度对于我们的算法来讲不会有影响
+				m_nSendBufferIndex++;
+			}
+			if (m_nSendBufferIndex >= BUFFER_SIZE / 4)
+			{	//发送缓存已满，将数据发送出去
+				m_nSendBufferIndex = 0;
+				memcpy(m_SendBuffer2, m_SendBuffer1, BUFFER_SIZE * sizeof(char));
+				while (m_IsRemoteOK == FALSE)	//等待接收方返回接收回执，这里可以考虑设置一个等待的时间门限，如果超时，则认为接收方出现故障，终止远程发送，断开SOCKET连接
+				{	//如果采用非同步传输方式，可不用等待，仿真效率会提高，但数据在接收方可能会有丢失
+					Sleep(1);
+					m_WaittingTime++;
+					if (m_WaittingTime>1000)	//等待时间达到1秒，重发一次数据，应对对方反应慢的问题
+					{
+						m_WaittingTime = 0;
+						m_TargetSocket.Send(m_SendBuffer2, BUFFER_SIZE);
+					}
+				}
+				m_IsRemoteOK = FALSE;
+				m_TargetSocket.Send(m_SendBuffer2, BUFFER_SIZE);
+			}
 		}
-		if(m_nReceiveBufferIndex >= BUFFER_SIZE/4)
+		else	//接收方
 		{
-			m_nReceiveBufferIndex = 0;
-			m_bHasNewData = FALSE;
+			//数据接收
+			while (m_bHasNewData == FALSE)	//等待发送方发送新的数据，可以设置一个超时时间，如果超时则断开SOCKET连接，终止接收数据
+			{	//如果采用非同步传输方式，可不用等待，仿真效率会提高，但是数据可能会有重复
+				Sleep(1);
+			}
+			if (m_DataWaitingTime == 1000)
+			{
+				pdOutput[0] = m_ReceiveBuffer[m_nReceiveBufferIndex];
+				m_nReceiveBufferIndex++;
+			}
+			if (m_nReceiveBufferIndex >= BUFFER_SIZE / 4)
+			{
+				m_nReceiveBufferIndex = 0;
+				m_bHasNewData = FALSE;
+			}
 		}
 	}
+	
 }
 
 void CAlgorithm::OnBnClickedOk()
@@ -164,7 +226,13 @@ LRESULT CAlgorithm::OnNewData(WPARAM wParam, LPARAM lParam)
 			memcpy(m_ReceiveBuffer, pSocket->GetRevBuffer(), BUFFER_SIZE*sizeof(char));
 			m_bHasNewData = TRUE;
 			//应答发送方，本地已收到数据
-			pSocket->Send("R_OK", 5*sizeof(char));
+			if (m_NeedDp == TRUE && m_CanSendOK == TRUE) {
+				pSocket->Send("R_OK", 5 * sizeof(char));
+			}
+			if (m_NeedDp == FALSE) {
+				pSocket->Send("R_OK", 5 * sizeof(char));
+			}
+			
 		}
 	}
 	else	//作为发送方接收到的数据为对方返回的回执信息
@@ -220,4 +288,23 @@ void CAlgorithm::OnBnClickedButton10()
 		m_bIsSend = FALSE;
 	else
 		m_bIsSend = TRUE;
+}
+
+
+void CAlgorithm::OnBnClickedDpy()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	m_NeedDp = true;
+	this->GetDlgItem(IDC_DPY)->EnableWindow(FALSE);
+	this->GetDlgItem(IDC_DPN)->EnableWindow(TRUE);
+
+}
+
+
+void CAlgorithm::OnBnClickedDpn()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	m_NeedDp = false;
+	this->GetDlgItem(IDC_DPY)->EnableWindow(TRUE);
+	this->GetDlgItem(IDC_DPN)->EnableWindow(FALSE);
 }

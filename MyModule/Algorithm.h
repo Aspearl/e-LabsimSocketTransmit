@@ -54,10 +54,19 @@ private:
 	unsigned int m_nReceiveBufferIndex;
 	BOOL m_bHasNewData;
 	BOOL m_IsRemoteOK;
+	BOOL m_NeedDp;
+	BOOL m_IsSynchr;
+	BOOL m_CanSendOK;
+#define dpNum 100
+
+	 float dpbuffer[dpNum];
+
 	unsigned int m_WaittingTime;
 public:
 	afx_msg void OnBnClickedCancel();
 	CEdit m_PortNumEdit;
 	CEdit m_ServerPortNumEdit;
 	afx_msg void OnBnClickedButton10();
+	afx_msg void OnBnClickedDpy();
+	afx_msg void OnBnClickedDpn();
 };
