@@ -13,6 +13,7 @@ IMPLEMENT_DYNAMIC(CAlgorithm, CDialog)
 CAlgorithm::CAlgorithm(CWnd* pParent /*=NULL*/)
 	: CDialog(CAlgorithm::IDD, pParent)
 {
+	
 
 }
 
@@ -57,10 +58,12 @@ BOOL CAlgorithm::OnInitDialog()
 	CButton* pReceiveRadio = (CButton*)GetDlgItem(IDC_RADIO2);
 	pReceiveRadio->SetCheck(0);
 
-	m_IsRemoteOK = TRUE;
+	m_IsRemoteOK = FALSE;
 	m_bHasNewData = FALSE;
 	m_CanSendOK = FALSE;
 	m_NeedDp = FALSE;
+	m_IsSynchr = FALSE;
+
 	m_nSendBufferIndex = 0;
 	m_nReceiveBufferIndex = 0;
 	m_WaittingTime = 0;
@@ -83,7 +86,7 @@ void CAlgorithm::RunAlgorithm(const double* pdInput, double * pdOutput)
 			}
 			if (m_nSendBufferIndex >= dpNum / 4)
 			{	//发送25个导频信号
-				memcpy(m_SendBuffer2, m_SendBuffer1, dpNum * sizeof(char));
+ 				memcpy(m_SendBuffer2, m_SendBuffer1, dpNum * sizeof(char));
 				while (m_IsRemoteOK == FALSE)	//等待接收方返回接收回执，这里可以考虑设置一个等待的时间门限，如果超时，则认为接收方出现故障，终止远程发送，断开SOCKET连接
 				{	//如果采用非同步传输方式，可不用等待，仿真效率会提高，但数据在接收方可能会有丢失
 					Sleep(1);
@@ -98,7 +101,8 @@ void CAlgorithm::RunAlgorithm(const double* pdInput, double * pdOutput)
 				m_nSendBufferIndex = 0;
 				m_IsSynchr = TRUE;
 			}
-			else {
+		}
+		else {
 				
 				//数据接收
 				while (m_bHasNewData == FALSE)	//等待发送方发送新的数据，可以设置一个超时时间，如果超时则断开SOCKET连接，终止接收数据
@@ -124,11 +128,13 @@ void CAlgorithm::RunAlgorithm(const double* pdInput, double * pdOutput)
 					}
 				}
 				m_CanSendOK = TRUE;
+				m_IsSynchr = TRUE;
+				m_bHasNewData = FALSE;
 			}
 		}
-	}
 	
-	if (m_NeedDp == FALSE) {
+	
+	if (m_NeedDp == FALSE || m_IsSynchr == TRUE) {
 
 		if (m_bIsSend == TRUE)	//发送方
 		{
